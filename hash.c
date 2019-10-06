@@ -93,7 +93,7 @@ bool redimensionar(hash_t* hash, size_t capacidad_nueva){
             lista_insertar_ultimo(hash->listas[j], campo);
             lista_borrar_primero(lista_vieja);
         }
-        if (lista_vieja) lista_destruir(lista_vieja);
+        if (lista_vieja) lista_destruir(lista_vieja, NULL);
         i--;
     }
     return true;
@@ -113,7 +113,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
     }
     campo_t* campo;
     hash->cantidad++;
-    else if (lista_iter_ver_actual(iterador)){
+    if (lista_iter_ver_actual(iterador)){
         campo = lista_iter_ver_actual(iterador);
         void* valor_a_borrar = campo->valor;
         campo->valor = dato;
@@ -198,7 +198,7 @@ struct hash_iter{
 size_t encontrar_prox_lista(const hash_t* hash, size_t n){
     size_t i = n;
 
-    while (i < hash->capacidad && (!hash->listas[i] || lista_esta_vacia(hash->listas[i])){
+    while (i < hash->capacidad && (!hash->listas[i] || lista_esta_vacia(hash->listas[i]))){
         i++;
     }
 
@@ -217,7 +217,7 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
     
     else{
         lista_iter_t* lista_iter = lista_iter_crear(hash->listas[i]);
-        if (!iter_lista){
+        if (!lista_iter){
             free(iter);
             return NULL;
         }
@@ -231,12 +231,12 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
 }
 
 bool hash_iter_avanzar(hash_iter_t *iter){
-    if (lista_iter_avanzar(iter->iter_lista) return true;
+    if (lista_iter_avanzar(iter->iter_lista)) return true;
 
-    size_t i = encontrar_prox_lista(hash, iter->pos + 1);
+    size_t i = encontrar_prox_lista(iter->hash, iter->pos + 1);
     if (i == iter->hash->capacidad) return false;
 
-    *lista_iter_t lista_iter = lista_iter_crear(hash->listas[i]);
+    lista_iter_t* lista_iter = lista_iter_crear(iter->hash->listas[i]);
     if (!lista_iter) return false;
 
     lista_iter_destruir(iter->iter_lista);
@@ -246,12 +246,19 @@ bool hash_iter_avanzar(hash_iter_t *iter){
     return true;
 }
 
-const char *hash_iter_ver_actual(const hash_iter_t *iter);
+const char *hash_iter_ver_actual(const hash_iter_t *iter){
+    if (iter->hash->cantidad == 0) return NULL; 
+    campo_t* campo =  (campo_t*)lista_iter_ver_actual(iter->iter_lista);
+    return campo->clave;
+}
 
 bool hash_iter_al_final(const hash_iter_t *iter){
-    if (iter->pos == hash->capacidad) return true;
+    if (iter->pos == iter->hash->capacidad) return true;
     if (!lista_iter_al_final(iter->iter_lista)) return false;
     return encontrar_prox_lista(iter->hash, iter->pos + 1) == iter->hash->capacidad;
 }
 
-void hash_iter_destruir(hash_iter_t* iter);
+void hash_iter_destruir(hash_iter_t* iter){
+    lista_iter_destruir(iter->iter_lista);
+    free(iter);
+}
