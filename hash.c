@@ -8,7 +8,7 @@
 #define TAM_INICIAL 7
 #define CRIT_AGRANDAR 3
 #define CRIT_ACHICAR 4
-#define FACTOR_AMPLIACION 3
+#define FACTOR_AMPLIACION 2
 #define FACTOR_REDUCCION 2
 
 struct hash{
@@ -27,7 +27,7 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato){
     hash_t* hash = malloc(sizeof(hash_t));
     if (!hash) return NULL;
     
-    hash->listas = calloc(TAM_INICIAL, sizeof(lista_t));
+    hash->listas = calloc(TAM_INICIAL, sizeof(lista_t*));
     if (!hash->listas){
         free(hash);
         return NULL;
@@ -49,7 +49,6 @@ size_t f_hash(hash_t* hash, char *str){
 
     return valor % hash->capacidad;
 }
-
 
 lista_iter_t* iter_buscar_clave(lista_t* lista, char* clave){
     lista_iter_t* iter = lista_iter_crear(lista);
@@ -142,6 +141,10 @@ void *hash_borrar(hash_t *hash, const char *clave){
     lista_iter_destruir(iter_clave);
     hash->cantidad--;
 
+    if (hash->cantidad >= hash->capacidad * FACTOR_AMPLIACION){
+        redimensionar(hash, hash->capacidad * CRIT_AGRANDAR);
+    }
+
     return valor;
 }
 
@@ -183,12 +186,72 @@ void hash_destruir(hash_t *hash){
     free(hash);
 }
 
-hash_iter_t *hash_iter_crear(const hash_t *hash);
+struct hash_iter{
+    size_t pos;
+    lista_iter_t* iter_lista;
+    const hash_t* hash;
+};
 
-bool hash_iter_avanzar(hash_iter_t *iter);
+/* Busca la próxima posición con una lista no vacía.
+ * Si el valor devuelto es igual a la capacidad del hash, 
+ * entonces no hay más listas por recorrer */
+size_t encontrar_prox_lista(const hash_t* hash, size_t n){
+    size_t i = n;
+
+    while (i < hash->capacidad && (!hash->listas[i] || lista_esta_vacia(hash->listas[i])){
+        i++;
+    }
+
+    return i;
+}
+
+hash_iter_t *hash_iter_crear(const hash_t *hash){
+    hash_iter_t* iter = malloc(sizeof(hash_iter_t));
+    if (!iter) return NULL;
+
+    size_t i = encontrar_prox_lista(hash, 0);
+
+    if (i == hash->capacidad){
+        iter->iter_lista = NULL;
+    }
+    
+    else{
+        lista_iter_t* lista_iter = lista_iter_crear(hash->listas[i]);
+        if (!iter_lista){
+            free(iter);
+            return NULL;
+        }
+        iter->iter_lista = lista_iter;
+    }
+    
+    iter->pos = i;
+    iter->hash = hash;
+
+    return iter;
+}
+
+bool hash_iter_avanzar(hash_iter_t *iter){
+    if (lista_iter_avanzar(iter->iter_lista) return true;
+
+    size_t i = encontrar_prox_lista(hash, iter->pos + 1);
+    if (i == iter->hash->capacidad) return false;
+
+    *lista_iter_t lista_iter = lista_iter_crear(hash->listas[i]);
+    if (!lista_iter) return false;
+
+    lista_iter_destruir(iter->iter_lista);
+    iter->pos = i;
+    iter->iter_lista = lista_iter;
+
+    return true;
+}
 
 const char *hash_iter_ver_actual(const hash_iter_t *iter);
 
-bool hash_iter_al_final(const hash_iter_t *iter);
+bool hash_iter_al_final(const hash_iter_t *iter){
+    if (iter->pos == hash->capacidad) return true;
+    if (!lista_iter_al_final(iter->iter_lista)) return false;
+    return encontrar_prox_lista(iter->hash, iter->pos + 1) == iter->hash->capacidad;
+}
 
 void hash_iter_destruir(hash_iter_t* iter);
