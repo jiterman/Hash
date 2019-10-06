@@ -188,6 +188,7 @@ void hash_destruir(hash_t *hash){
 
 struct hash_iter{
     size_t pos;
+    size_t cant_iterados;
     lista_iter_t* iter_lista;
     const hash_t* hash;
 };
@@ -209,39 +210,43 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
     hash_iter_t* iter = malloc(sizeof(hash_iter_t));
     if (!iter) return NULL;
 
-    size_t i = encontrar_prox_lista(hash, 0);
-
-    if (i == hash->capacidad){
+    if (!hash->cantidad){
         iter->iter_lista = NULL;
+        iter->pos = hash->capacidad;
+        iter->cant_iterados = 0;
     }
-    
     else{
-        lista_iter_t* lista_iter = lista_iter_crear(hash->listas[i]);
-        if (!lista_iter){
+        size_t i = encontrar_prox_lista(hash, 0);
+
+        lista_iter_t* iter_lista = lista_iter_crear(hash->listas[i]);
+        if (!iter_lista){
             free(iter);
             return NULL;
         }
-        iter->iter_lista = lista_iter;
+        iter->iter_lista = iter_lista;
+        iter->pos = i;
+        iter->cant_iterados = 1;
     }
-    
-    iter->pos = i;
     iter->hash = hash;
 
     return iter;
 }
 
 bool hash_iter_avanzar(hash_iter_t *iter){
-    if (lista_iter_avanzar(iter->iter_lista)) return true;
+    if (iter->cant_iterados == iter->hash->cantidad) return false;
+    
+    if (lista_iter_al_final(iter->iter_lista){
+        size_t i = encontrar_prox_lista(iter->hash, iter->pos + 1);
 
-    size_t i = encontrar_prox_lista(iter->hash, iter->pos + 1);
-    if (i == iter->hash->capacidad) return false;
+        lista_iter_t* iter_lista = lista_iter_crear(iter->hash->listas[i]);
+        if (!iter_lista) return false;
 
-    lista_iter_t* lista_iter = lista_iter_crear(iter->hash->listas[i]);
-    if (!lista_iter) return false;
-
-    lista_iter_destruir(iter->iter_lista);
-    iter->pos = i;
-    iter->iter_lista = lista_iter;
+        lista_iter_destruir(iter->iter_lista);
+        iter->pos = i;
+        iter->iter_lista = iter_lista;
+    }
+    else lista_iter_avanzar(iter->iter_lista);
+    iter->cant_iterados++;
 
     return true;
 }
@@ -253,9 +258,7 @@ const char *hash_iter_ver_actual(const hash_iter_t *iter){
 }
 
 bool hash_iter_al_final(const hash_iter_t *iter){
-    if (iter->pos == iter->hash->capacidad) return true;
-    if (!lista_iter_al_final(iter->iter_lista)) return false;
-    return encontrar_prox_lista(iter->hash, iter->pos + 1) == iter->hash->capacidad;
+    return iter->cant_iterados == iter->hash->cantidad;
 }
 
 void hash_iter_destruir(hash_iter_t* iter){
