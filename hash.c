@@ -79,11 +79,25 @@ campo_t* buscar_campo(hash_t* hash, char* clave){
 }
 
 bool redimensionar(hash_t* hash, size_t capacidad_nueva){
-    void* datos_nuevos = calloc(capacidad_nueva, sizeof(lista_t));
-    if (!datos_nuevo) return false;
-
-    
-
+    lista_t** datos_nuevos = calloc(capacidad_nueva, sizeof(lista_t*));
+    if (!datos_nuevos) return false;
+    lista_t** vector_a_redimensionar = hash->listas;
+    hash->listas = datos_nuevos;
+    size_t i = (hash->cantidad)-1;
+    while (i>=0){
+        lista_t* lista_vieja = vector_a_redimensionar[i];
+        while (lista_vieja && !lista_esta_vacia(lista_vieja)){
+            campo_t* campo = lista_ver_primero(lista_vieja);
+            char* _clave = strdup(campo->clave);
+            size_t j = f_hash(hash, _clave);
+            if (!hash->listas[j]) hash->listas[j] = lista_crear();
+            lista_insertar_ultimo(hash->listas[j], campo);
+            lista_borrar_primero(lista_vieja);
+        }
+        if (lista_vieja) lista_destruir(lista_vieja);
+        i--;
+    }
+    return true;
 }
 
 bool hash_guardar(hash_t *hash, const char *clave, void *dato){
@@ -93,7 +107,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
         lista_t* lista = lista_crear();
         hash->listas[i] = lista;
     }
-    lista_iter_t* iterador = iter_buscar_clave(listas[i], _clave);
+    lista_iter_t* iterador = iter_buscar_clave(hash->listas[i], _clave);
     if (!iterador) {
         free(_clave);
         return false;
