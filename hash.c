@@ -85,7 +85,6 @@ campo_t* buscar_campo(const hash_t* hash, const char* clave){
     if (!iter_clave) return NULL;
     campo_t* campo = (campo_t*)lista_iter_ver_actual(iter_clave);
     lista_iter_destruir(iter_clave);
-    if (!campo) return NULL;
 
     return campo;
 }
@@ -131,6 +130,18 @@ bool redimensionar(hash_t* hash, size_t capacidad_nueva){
     return true;
 }
 
+campo_t* generar_campo(const char* clave, void* dato){
+    campo_t* campo = malloc(sizeof(campo_t));
+    char* _clave = strdup(clave);
+    if (!campo || !_clave){
+        free(campo); free(_clave);
+        return NULL;
+    }
+    campo->clave = _clave;
+    campo->valor = dato;
+    return campo;
+}
+
 bool hash_guardar(hash_t *hash, const char *clave, void *dato){
     if (hash->cantidad >= (hash->capacidad * FACTOR_CARGA_AMPLIACION)){
         if (!redimensionar(hash, hash->capacidad * CRIT_AGRANDAR)) return false;
@@ -140,21 +151,17 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
     if (!hash->listas[i]) return false;
     lista_iter_t* iterador = iter_buscar_clave(hash->listas[i], clave);
     if (!iterador) return false;
-    if (lista_iter_ver_actual(iterador)){
+    if (!lista_iter_al_final(iterador)){
         campo_t* campo = lista_iter_ver_actual(iterador);
         if (hash->hash_destruir_dato_t) hash->hash_destruir_dato_t(campo->valor);
         campo->valor = dato;
     }
     else{
-        campo_t* campo = malloc(sizeof(campo_t));
-        char* _clave = strdup(clave);
-        if (!campo || !_clave){
-            free(campo); free(_clave);
+        campo_t* campo = generar_campo(clave, dato);
+        if (!campo){
             lista_iter_destruir(iterador);
             return false;
         }
-        campo->clave = _clave;
-        campo->valor = dato;
         lista_iter_insertar(iterador, campo);  
         hash->cantidad++;  
     }
@@ -167,13 +174,12 @@ void *hash_borrar(hash_t *hash, const char *clave){
 
     if (!hash->cantidad || !hash->listas[i]) return NULL;
 
-    lista_iter_t* iter_clave = iter_buscar_clave(hash->listas[i], clave); 
-    if (!iter_clave) return NULL;
-    campo_t* campo = (campo_t*)lista_iter_ver_actual(iter_clave);
-    if (!campo){
-        lista_iter_destruir(iter_clave);
+    lista_iter_t* iter_clave = iter_buscar_clave(hash->listas[i], clave);
+    if (!iter_clave || lista_iter_al_final(iter_clave)){
+        if (iter_clave) lista_iter_destruir(iter_clave);
         return NULL;
     }
+    campo_t* campo = (campo_t*)lista_iter_ver_actual(iter_clave);
     void* valor = campo->valor;
     free(campo->clave);
     free(lista_iter_borrar(iter_clave));
@@ -226,7 +232,6 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
     if (!hash->cantidad){
         iter->iter_lista = NULL;
         iter->pos = hash->capacidad;
-        iter->cant_iterados = 0;
     }
     else{
         size_t i = encontrar_prox_lista(hash, 0);
@@ -238,8 +243,8 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
         }
         iter->iter_lista = iter_lista;
         iter->pos = i;
-        iter->cant_iterados = 0;
     }
+    iter->cant_iterados = 0;
     iter->hash = hash;
 
     return iter;
